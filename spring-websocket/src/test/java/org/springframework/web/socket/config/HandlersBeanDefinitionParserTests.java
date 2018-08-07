@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,20 @@
 
 package org.springframework.web.socket.config;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 
-import org.junit.Before;
 import org.junit.Test;
 
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
-import org.springframework.messaging.support.ChannelInterceptorAdapter;
+import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -60,12 +55,13 @@ import org.springframework.web.socket.sockjs.transport.TransportType;
 import org.springframework.web.socket.sockjs.transport.handler.DefaultSockJsService;
 import org.springframework.web.socket.sockjs.transport.handler.EventSourceTransportHandler;
 import org.springframework.web.socket.sockjs.transport.handler.HtmlFileTransportHandler;
-import org.springframework.web.socket.sockjs.transport.handler.JsonpPollingTransportHandler;
-import org.springframework.web.socket.sockjs.transport.handler.JsonpReceivingTransportHandler;
 import org.springframework.web.socket.sockjs.transport.handler.WebSocketTransportHandler;
 import org.springframework.web.socket.sockjs.transport.handler.XhrPollingTransportHandler;
 import org.springframework.web.socket.sockjs.transport.handler.XhrReceivingTransportHandler;
 import org.springframework.web.socket.sockjs.transport.handler.XhrStreamingTransportHandler;
+
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
 
 /**
  * Test fixture for HandlersBeanDefinitionParser.
@@ -76,13 +72,7 @@ import org.springframework.web.socket.sockjs.transport.handler.XhrStreamingTrans
  */
 public class HandlersBeanDefinitionParserTests {
 
-	private GenericWebApplicationContext appContext;
-
-
-	@Before
-	public void setup() {
-		this.appContext = new GenericWebApplicationContext();
-	}
+	private final GenericWebApplicationContext appContext = new GenericWebApplicationContext();
 
 
 	@Test
@@ -181,23 +171,22 @@ public class HandlersBeanDefinitionParserTests {
 		assertThat(defaultSockJsService.getTaskScheduler(), instanceOf(ThreadPoolTaskScheduler.class));
 		assertFalse(defaultSockJsService.shouldSuppressCors());
 
-		Map<TransportType, TransportHandler> transportHandlers = defaultSockJsService.getTransportHandlers();
-		assertThat(transportHandlers.values(),
+		Map<TransportType, TransportHandler> handlerMap = defaultSockJsService.getTransportHandlers();
+		assertThat(handlerMap.values(),
 				containsInAnyOrder(
 						instanceOf(XhrPollingTransportHandler.class),
 						instanceOf(XhrReceivingTransportHandler.class),
-						instanceOf(JsonpPollingTransportHandler.class),
-						instanceOf(JsonpReceivingTransportHandler.class),
 						instanceOf(XhrStreamingTransportHandler.class),
 						instanceOf(EventSourceTransportHandler.class),
 						instanceOf(HtmlFileTransportHandler.class),
 						instanceOf(WebSocketTransportHandler.class)));
 
-		WebSocketTransportHandler handler = (WebSocketTransportHandler) transportHandlers.get(TransportType.WEBSOCKET);
+		WebSocketTransportHandler handler = (WebSocketTransportHandler) handlerMap.get(TransportType.WEBSOCKET);
 		assertEquals(TestHandshakeHandler.class, handler.getHandshakeHandler().getClass());
 
 		List<HandshakeInterceptor> interceptors = defaultSockJsService.getHandshakeInterceptors();
-		assertThat(interceptors, contains(instanceOf(FooTestInterceptor.class), instanceOf(BarTestInterceptor.class), instanceOf(OriginHandshakeInterceptor.class)));
+		assertThat(interceptors, contains(instanceOf(FooTestInterceptor.class),
+				instanceOf(BarTestInterceptor.class), instanceOf(OriginHandshakeInterceptor.class)));
 	}
 
 	@Test
@@ -234,9 +223,11 @@ public class HandlersBeanDefinitionParserTests {
 
 		List<HandshakeInterceptor> interceptors = transportService.getHandshakeInterceptors();
 		assertThat(interceptors, contains(instanceOf(OriginHandshakeInterceptor.class)));
-		assertEquals(Arrays.asList("http://mydomain1.com", "http://mydomain2.com"), transportService.getAllowedOrigins());
 		assertTrue(transportService.shouldSuppressCors());
+		assertTrue(transportService.getAllowedOrigins().contains("http://mydomain1.com"));
+		assertTrue(transportService.getAllowedOrigins().contains("http://mydomain2.com"));
 	}
+
 
 	private void loadBeanDefinitions(String fileName) {
 		XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(this.appContext);
@@ -278,8 +269,10 @@ class TestWebSocketHandler implements WebSocketHandler {
 	}
 }
 
+
 class FooWebSocketHandler extends TestWebSocketHandler {
 }
+
 
 class TestHandshakeHandler implements HandshakeHandler {
 
@@ -291,8 +284,10 @@ class TestHandshakeHandler implements HandshakeHandler {
 	}
 }
 
-class TestChannelInterceptor extends ChannelInterceptorAdapter {
+
+class TestChannelInterceptor implements ChannelInterceptor {
 }
+
 
 class FooTestInterceptor implements HandshakeInterceptor {
 
@@ -309,8 +304,10 @@ class FooTestInterceptor implements HandshakeInterceptor {
 	}
 }
 
+
 class BarTestInterceptor extends FooTestInterceptor {
 }
+
 
 @SuppressWarnings({ "unchecked", "rawtypes" })
 class TestTaskScheduler implements TaskScheduler {
@@ -344,8 +341,8 @@ class TestTaskScheduler implements TaskScheduler {
 	public ScheduledFuture scheduleWithFixedDelay(Runnable task, long delay) {
 		return null;
 	}
-
 }
+
 
 class TestMessageCodec implements SockJsMessageCodec {
 

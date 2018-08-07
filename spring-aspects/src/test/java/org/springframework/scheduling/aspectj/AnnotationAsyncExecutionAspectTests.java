@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -210,7 +210,8 @@ public class AnnotationAsyncExecutionAspectTests {
 		public synchronized void waitForCompletion() {
 			try {
 				wait(WAIT_TIME);
-			} catch (InterruptedException e) {
+			}
+			catch (InterruptedException ex) {
 				fail("Didn't finish the async job in " + WAIT_TIME + " milliseconds");
 			}
 		}
@@ -294,7 +295,7 @@ public class AnnotationAsyncExecutionAspectTests {
 
 		@Async
 		public void failWithVoid() {
-			 throw new UnsupportedOperationException("failWithVoid");
+			throw new UnsupportedOperationException("failWithVoid");
 		}
 	}
 
